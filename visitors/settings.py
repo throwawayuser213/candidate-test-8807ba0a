@@ -35,5 +35,5 @@ VISITOR_SESSION_EXPIRY: Optional[int] = _setting("VISITOR_SESSION_EXPIRY", 0)
 VISITOR_TOKEN_EXPIRY: int = _setting("VISITOR_TOKEN_EXPIRY", 300)
 
 # Value used to set the maximum number of visitor token uses - the number of times
-# after which it can longer be used.
+# after which it can no longer be used.
 VISITOR_TOKEN_MAX_USES: int = _setting("VISITOR_TOKEN_MAX_USES", 10)
