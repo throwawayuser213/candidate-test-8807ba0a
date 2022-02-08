@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import datetime
-import uuid
 from typing import Any
+import uuid
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 from django.db import models
@@ -11,7 +11,7 @@ from django.http.request import HttpRequest
 from django.utils.timezone import now as tz_now
 from django.utils.translation import gettext_lazy as _lazy
 
-from .settings import VISITOR_QUERYSTRING_KEY, VISITOR_TOKEN_EXPIRY
+from .settings import VISITOR_QUERYSTRING_KEY, VISITOR_TOKEN_EXPIRY, VISITOR_TOKEN_MAX_USES
 
 
 class InvalidVisitorPass(Exception):
@@ -22,6 +22,7 @@ class Visitor(models.Model):
     """A temporary visitor (betwixt anonymous and authenticated)."""
 
     DEFAULT_TOKEN_EXPIRY = datetime.timedelta(seconds=VISITOR_TOKEN_EXPIRY)
+    DEFAULT_MAX_TOKEN_USES = int(VISITOR_TOKEN_MAX_USES)
 
     uuid = models.UUIDField(default=uuid.uuid4)
     first_name = models.CharField(max_length=150, blank=True)
@@ -43,6 +44,23 @@ class Visitor(models.Model):
         help_text=_lazy(
             "After this time the link can no longer be used - "
             "defaults to VISITOR_TOKEN_EXPIRY."
+        ),
+    )
+    max_uses = models.PositiveSmallIntegerField(
+        blank=True,
+        null=True,
+        default=DEFAULT_MAX_TOKEN_USES,
+        help_text=_lazy(
+            "Tracks the maximum number of times this token can be used - "
+            "defaults to VISITOR_TOKEN_USES."
+        ),
+    )
+    current_uses = models.PositiveSmallIntegerField(
+        blank=True,
+        null=True,
+        default=0,
+        help_text=_lazy(
+            "Tracks the number of times this token has been used"
         ),
     )
     is_active = models.BooleanField(
@@ -83,7 +101,10 @@ class Visitor(models.Model):
         """Return True if the expires_at timestamp has been passed (or not yet set)."""
         if not self.expires_at:
             return False
-        return self.expires_at < tz_now()
+        elif self.expires_at < tz_now():
+            return True
+        else:
+            return self.current_uses >= self.max_uses
 
     @property
     def is_valid(self) -> bool:
@@ -112,6 +133,8 @@ class Visitor(models.Model):
             "email": self.email,
             "scope": self.scope,
             "context": self.context,
+            "current_uses": self.current_uses,
+            "max_uses": self.max_uses
         }
 
     def tokenise(self, url: str) -> str:

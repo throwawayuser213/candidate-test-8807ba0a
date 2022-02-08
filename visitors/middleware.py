@@ -5,6 +5,7 @@ from typing import Callable
 
 from django.conf import settings
 from django.core.exceptions import MiddlewareNotUsed
+from django.db.models import F
 from django.http.request import HttpRequest
 from django.http.response import HttpResponse
 
@@ -16,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class VisitorRequestMiddleware:
-    """Extract visitor token from incoming request."""
+    """Extract visitor token from incoming request and increment current token uses."""
 
     def __init__(self, get_response: Callable):
         self.get_response = get_response
@@ -37,6 +38,8 @@ class VisitorRequestMiddleware:
             logger.debug("Invalid access request: %s", ex)
             return self.get_response(request)
         else:
+            visitor.current_uses = F('current_uses') + 1
+            visitor.save()
             request.visitor = visitor
             request.user.is_visitor = True
         return self.get_response(request)
@@ -60,7 +63,6 @@ class VisitorSessionMiddleware:
         The first time this middleware runs after a new session is created
         this will push the `request.visitor` info into the session.
         Subsequent requests will then get the data out of the session.
-
         """
         # This will only be true directly after VisitorRequestMiddleware
         # has set the values. All subsequent requests in the session will

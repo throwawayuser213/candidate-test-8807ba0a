@@ -67,6 +67,14 @@ class TestVisitorRequestMiddleware(TestVisitorMiddlewareBase):
         assert request.user.is_visitor
         assert request.visitor == visitor
 
+    def test_increment_current_uses(self, visitor: Visitor) -> None:
+        current_uses = visitor.current_uses
+        request = self.request(visitor.tokenise("/"))
+        middleware = VisitorRequestMiddleware(lambda r: r)
+        middleware(request)
+        visitor_incremented = Visitor.objects.all().first()
+        assert visitor_incremented.current_uses == (current_uses + 1)
+
 
 @pytest.mark.django_db
 class TestVisitorSessionMiddleware(TestVisitorMiddlewareBase):

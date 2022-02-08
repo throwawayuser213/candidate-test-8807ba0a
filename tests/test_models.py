@@ -55,18 +55,34 @@ def test_reactivate():
 
 
 @pytest.mark.parametrize(
-    "is_active,expires_at,is_valid",
+    "is_active,expires_at,is_valid,current_uses,max_uses",
     (
-        (True, TOMORROW, True),
-        (False, TOMORROW, False),
-        (False, YESTERDAY, False),
-        (True, YESTERDAY, False),
+        (True, TOMORROW, True, 0, 10),
+        (True, TOMORROW, False, 10, 10),
+        (False, TOMORROW, False, 0, 10),
+        (False, YESTERDAY, False, 0, 10),
+        (False, YESTERDAY, False, 10, 10),
+        (True, YESTERDAY, False, 0, 10),
+        (True, YESTERDAY, False, 10, 10),
     ),
 )
-def test_validate(is_active, expires_at, is_valid):
-    visitor = Visitor(is_active=is_active, expires_at=expires_at)
+def test_validate(is_active, expires_at, is_valid, current_uses, max_uses):
+    visitor = Visitor(
+        is_active=is_active,
+        expires_at=expires_at,
+        current_uses=current_uses,
+        max_uses=max_uses
+        )
+
+    if not visitor.expires_at:
+        expired = False
+    elif visitor.expires_at < tz_now():
+        expired = True
+    else:
+        expired = (visitor.current_uses >= visitor.max_uses)
+
     assert visitor.is_active == is_active
-    assert visitor.has_expired == bool(expires_at < TODAY)
+    assert visitor.has_expired == expired
     if is_valid:
         visitor.validate()
         return
